@@ -411,6 +411,8 @@ def clean_text(text, strip_html=False, lower=True, keep_emails=False, keep_at_me
     text = re.sub(r'\.', '', text)
     # replace all other punctuation (except single quotes) with spaces
     text = replace.sub(' ', text)
+    # remove single quotes
+    text = re.sub(r'\'', '', text)
     # replace all whitespace with a single space
     text = re.sub(r'\s', ' ', text)
     # strip off spaces on either end
