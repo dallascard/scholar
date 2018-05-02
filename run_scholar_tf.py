@@ -257,10 +257,10 @@ def main():
     if n_covariates > 0:
         beta_c = model.get_covar_weights()
         print("Covariate deviations:")
-        if covar_emb_dim == 0:
-            maw, sparsity = print_top_words(beta_c, vocab, covariate_names, n_top_words=16)
-        else:
+        if covar_emb_dim > 0:
             maw, sparsity = print_top_words(beta_c, vocab)
+        else:
+            maw, sparsity = print_top_words(beta_c, vocab, covariate_names, n_top_words=16)
         print("sparsity in covariates = %0.4f" % sparsity)
         if output_dir is not None:
             np.savez(os.path.join(output_dir, 'beta_c.npz'), beta=beta_c, names=covariate_names)
@@ -329,7 +329,7 @@ def main():
     # Print associations between topics and labels
     if n_labels > 0:
         all_probs = np.zeros([n_topics, n_labels])
-        if n_labels < 7:
+        if n_labels < 15:
             print("Label probabilities based on topics")
             print("Labels:", ' '.join([name for name in label_names]))
         for k in range(n_topics):
