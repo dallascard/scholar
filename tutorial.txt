@@ -1,0 +1,87 @@
+### Tutorial:
+
+For demonstration purposes, we will use the 20 newsgroups data. Start by downloading the data, using:
+
+`python download_20ng.py`
+
+This will download the 20 newsgroups dataset, split it into train and test, and create a data/20ng directory,
+with subdirectories for various subsets. Each subset will contain a train and test file, and each of those will be a
+list of json objects (one line per document), each of which will have a "text" field and a "group" field.
+Let's start by using the the "talk" subset.
+
+Convert the data to the required format using:
+
+`python preprocess_data.py data/20ng/20ng_talk/train.jsonlist data/20ng/20ng_talk/ --test data/20ng/20ng_talk/test.jsonlist --vocab_size 2000 --label group`
+
+The first two arguments are [path to train.jsonlist] [output directory]. `--test` allows you to specify a second input
+file, which will also be preprocessed using a shared vocabulary. `--label` tells the script which field
+to use as a label (default is None). This script will convert the list of json objects to
+a document-word count matrix for both train and test, and use the "group" field in the json objects as a label.
+
+To train a basic model, use:
+
+`python run_scholar_tf.py data/20ng/20ng_talk/ train -k 6`
+
+The arguments are [input directory] [prefix of training data] [-k number of topics]
+
+Using "train" as the prefix, it will look for the files train.npz and train.vocab.json in the input directory.
+The output will show the most highly-weighted words in six topics, plus the background.
+
+To include evaluation on dev data (randomly sampled from test) and separate test data, use:
+
+`python run_scholar_tf.py data/20ng/20ng_talk/ train -k 6 --dev_folds 5 -t test`
+
+`-t` specifies the prefix for the evaluation data. As with the training files, this will look for test.npz in
+the input directory. Note that this only uses a single dev fold, which will be 1/5th of the training data.
+
+To include the newsgroup label as a label (jointly generated with words), use:
+
+`python run_scholar_tf.py data/20ng/20ng_talk/ train -k 6 --dev_folds 5 -t test --labels group`
+
+This assumes that there is a "group" file for both train and test. --label can be used to specify the name.
+For example, the above will look in the input directory for train.group.csv and test.group.csv
+This will still only output six topics, but will also include the probability of each group given each topic.
+Running for longer may improve the classification accuracy
+
+To instead use the group as a covariate instead of a label, use:
+
+`python run_scholar_tf.py data/20ng/20ng_talk/ train -k 6 --dev_folds 5 -t test --covars group`
+
+This will now output six topics, plus four covariate deviations, one for each group.
+
+To also include interactions in the model, use:
+
+`python run_scholar_tf.py data/20ng/20ng_talk/ train -k 6 --dev_folds 5 -t test --covars group --covar_inter`
+
+It is also possible to load multiple covariate files simultaneously. For example, if we had another file called train.year.csv, we could run:
+
+`python run_scholar_tf.py data/20ng/20ng_talk/ train -k 6 --dev_folds 5 -t test --covars group,year`
+
+To initialize the model with word vectors, use:
+
+`python run_scholar_tf.py data/20ng/20ng_talk/ train -k 6 --dev_folds 5 -t test --w2v GoogleNews-vectors-negative300.bin`
+
+where the necessary file can be downloaded from https://github.com/mmihaltz/word2vec-GoogleNews-vectors and other places.
+
+Other useful options include:
+
+- `-a [hyperparameter of logistic normal prior]; default=1.0`
+- `-b [batch size]; default=200`
+- `-e [number of epochs]; default=250`
+- `-l [learning rate]; default=0.002`
+- `-m [momentum]; default=0.99`
+- `-o [output directory]; default=output`
+- `-r [regularize]; default=False`
+- `--threads [number of threads]; default=8`
+- `--seed [random seed]; default=None`
+
+To compute the coherence (NMPI) with respect to held out test data, use:
+
+`python compute_npmi.py output/topics.txt data/20ng/20ng_talk/test.npz data/20ng/20ng_talk/train.vocab.json`
+
+Any other corpus can be processed into the appropriate format for evaluating NPMI.
+
+
+### Practical advice
+
+The number of epochs can make a big difference. It can be hard to tell when the model has converged, and perplexity is not necessarily a good guide to model quality. A reasonable number of epochs seems to be about 200 or 250 for most datasets. Larger datasets might need less, and smaller datasets might need more. The best approach seems to be to try different numbers of epochs and look to see which gives you the preferred results.
