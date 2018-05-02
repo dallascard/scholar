@@ -341,7 +341,7 @@ def main():
                 C = None
             probs = model.predict_from_topics(Z, C)
             all_probs[k, :] = probs
-            if n_labels < 7:
+            if n_labels < 15:
                 output = str(k) + ': '
                 for i in range(n_labels):
                     output += '%.4f ' % probs[0, i]
