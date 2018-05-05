@@ -199,8 +199,8 @@ class torchScholar(nn.Module):
         self.mean_layer = nn.Linear(emb_size, self.dh)
         self.logvar_layer = nn.Linear(emb_size, self.dh)
 
-        self.mean_bn_layer = nn.BatchNorm1d(self.dh, eps=0.001, momentum=0.01)
-        self.logvar_bn_layer = nn.BatchNorm1d(self.dh, eps=0.001, momentum=0.01)
+        self.mean_bn_layer = nn.BatchNorm1d(self.dh, eps=0.001, momentum=0.001, affine=False)
+        self.logvar_bn_layer = nn.BatchNorm1d(self.dh, eps=0.001, momentum=0.001, affine=False)
 
         self.z_dropout_layer = nn.Dropout(p=0.2)
 
@@ -223,7 +223,7 @@ class torchScholar(nn.Module):
                 self.classifier_layer_1 = nn.Linear(self.dh, self.dh)
                 self.classifier_layer_2 = nn.Linear(self.dh, self.n_labels)
 
-        self.eta_bn_layer = nn.BatchNorm1d(vocab_size, eps=0.001, momentum=0.01)
+        self.eta_bn_layer = nn.BatchNorm1d(vocab_size, eps=0.001, momentum=0.001, affine=False)
 
         prior_mean = (np.log(alpha).T - np.mean(np.log(alpha), 1)).T
         prior_var = (((1.0 / alpha) * (1 - (2.0 / self.dh))).T + (1.0 / (self.dh * self.dh)) * np.sum(1.0 / alpha, 1)).T
