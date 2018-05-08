@@ -51,6 +51,8 @@ def main():
                       help='Do not use background freq: default=%default')
     parser.add_option('--no_bn_anneal', action="store_true", dest="no_bn_anneal", default=False,
                       help='Do not anneal away from batchnorm: default=%default')
+    parser.add_option('--test_samples', dest='test_samples', default=20,
+                      help='Number of samples to use in computing test perplexity: default=%default')
     parser.add_option('--dev_folds', dest='dev_folds', default=0,
                       help='Number of dev folds: default=%default')
     parser.add_option('--dev_fold', dest='dev_fold', default=0,
@@ -80,6 +82,7 @@ def main():
     update_background = options.update_bg
     no_bg = options.no_bg
     bn_anneal = not options.no_bn_anneal
+    test_samples = int(options.test_samples)
     dev_folds = int(options.dev_folds)
     dev_fold = int(options.dev_fold)
     rng = np.random.RandomState(np.random.randint(0, 100000))
@@ -225,12 +228,12 @@ def main():
 
     # Evaluate perplexity on dev and test dataa
     if dev_X is not None:
-        perplexity = evaluate_perplexity(model, dev_X, dev_labels, dev_covariates, eta_bn_prop=0.0)
+        perplexity = evaluate_perplexity(model, dev_X, dev_labels, dev_covariates, eta_bn_prop=0.0, n_samples=test_samples)
         print("Dev perplexity = %0.4f" % perplexity)
         fh.write_list_to_text([str(perplexity)], os.path.join(output_dir, 'perplexity.dev.txt'))
 
     if test_X is not None:
-        perplexity = evaluate_perplexity(model, test_X, test_labels, test_covariates, eta_bn_prop=0.0)
+        perplexity = evaluate_perplexity(model, test_X, test_labels, test_covariates, eta_bn_prop=0.0, n_samples=test_samples)
         print("Test perplexity = %0.4f" % perplexity)
         fh.write_list_to_text([str(perplexity)], os.path.join(output_dir, 'perplexity.test.txt'))
 
@@ -632,7 +635,7 @@ def print_top_bg(bg, feature_names, n_top_words=10):
     print(np.exp(temp[:-n_top_words-1:-1]))
 
 
-def evaluate_perplexity(model, X, Y, C, eta_bn_prop=0.0):
+def evaluate_perplexity(model, X, Y, C, eta_bn_prop=0.0, n_samples=0):
     """
     Evaluate the approximate perplexity on a subset of the data (using words, labels, and covariates)
     """
@@ -643,7 +646,7 @@ def evaluate_perplexity(model, X, Y, C, eta_bn_prop=0.0):
         Y = Y.astype('float32')
     if C is not None:
         C = C.astype('float32')
-    losses = model.get_losses(X, Y, C, eta_bn_prop=eta_bn_prop)
+    losses = model.get_losses(X, Y, C, eta_bn_prop=eta_bn_prop, n_samples=n_samples)
     perplexity = np.exp(np.mean(losses / doc_sums))
 
     return perplexity

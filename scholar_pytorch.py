@@ -90,7 +90,7 @@ class Scholar(object):
         probs = self._model.predict_from_theta(theta, C)
         return probs
 
-    def get_losses(self, X, Y, C, eta_bn_prop=0.0):
+    def get_losses(self, X, Y, C, eta_bn_prop=0.0, n_samples=0):
         """
         Compute and return the loss values for all instances in X, Y, C
         """
@@ -106,8 +106,18 @@ class Scholar(object):
             Y = Variable(torch.Tensor(Y))
         if C is not None:
             C = Variable(torch.Tensor(C))
-        _, _, Y_recon, losses = self._model(X, Y, C, do_average=False, var_scale=0.0, eta_bn_prop=eta_bn_prop)
-        return losses.data.numpy()
+        if n_samples == 0:
+            _, _, _, temp = self._model(X, Y, C, do_average=False, var_scale=0.0, eta_bn_prop=eta_bn_prop)
+            losses = temp.data.numpy()
+        else:
+            _, _, _, temp = self._model(X, Y, C, do_average=False, var_scale=1.0, eta_bn_prop=eta_bn_prop)
+            losses = temp.data.numpy()
+            for s in range(1, n_samples):
+                _, _, _, temp = self._model(X, Y, C, do_average=False, var_scale=1.0, eta_bn_prop=eta_bn_prop)
+                losses += temp.data.numpy()
+            losses /= float(n_samples)
+
+        return losses
 
     def compute_theta(self, X, Y, C, eta_bn_prop=0.0):
         """

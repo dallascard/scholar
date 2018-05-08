@@ -429,7 +429,7 @@ class Scholar(object):
         probs = self.sess.run(self.y_recon, feed_dict={self.x: X, self.y: Y, self.c: C, self.keep_prob: 1.0, self.l2_strengths: l2_strengths, self.l2_strengths_c: l2_strengths_c, self.l2_strengths_ci: l2_strengths_ci, self.var_scale: 0.0, self.batch_size: 1, self.is_training: False, self.theta_input: theta, self.use_theta_input: 1.0})
         return probs
 
-    def get_losses(self, X, Y, C, eta_bn_prop=0.0):
+    def get_losses(self, X, Y, C, eta_bn_prop=0.0, n_samples=0):
         """
         Compute and return the loss values for all instances in X, Y, C
         """
@@ -445,7 +445,13 @@ class Scholar(object):
         if C is not None and batch_size == 1:
             C = np.expand_dims(C, axis=0)
         theta_input = np.zeros([batch_size, self.network_architecture['n_topics']]).astype('float32')
-        losses = self.sess.run(self.losses, feed_dict={self.x: X, self.y: Y, self.c: C, self.keep_prob: 1.0, self.l2_strengths: l2_strengths, self.l2_strengths_c: l2_strengths_c, self.l2_strengths_ci: l2_strengths_ci, self.batch_size: batch_size, self.var_scale: 0.0, self.is_training: False, self.theta_input: theta_input, self.eta_bn_prop: eta_bn_prop})
+        if n_samples == 0:
+            losses = self.sess.run(self.losses, feed_dict={self.x: X, self.y: Y, self.c: C, self.keep_prob: 1.0, self.l2_strengths: l2_strengths, self.l2_strengths_c: l2_strengths_c, self.l2_strengths_ci: l2_strengths_ci, self.batch_size: batch_size, self.var_scale: 0.0, self.is_training: False, self.theta_input: theta_input, self.eta_bn_prop: eta_bn_prop})
+        else:
+            losses = self.sess.run(self.losses, feed_dict={self.x: X, self.y: Y, self.c: C, self.keep_prob: 1.0, self.l2_strengths: l2_strengths, self.l2_strengths_c: l2_strengths_c, self.l2_strengths_ci: l2_strengths_ci, self.batch_size: batch_size, self.var_scale: 1.0, self.is_training: False, self.theta_input: theta_input, self.eta_bn_prop: eta_bn_prop})
+            for s in range(1, n_samples):
+                losses += self.sess.run(self.losses, feed_dict={self.x: X, self.y: Y, self.c: C, self.keep_prob: 1.0, self.l2_strengths: l2_strengths, self.l2_strengths_c: l2_strengths_c, self.l2_strengths_ci: l2_strengths_ci, self.batch_size: batch_size, self.var_scale: 1.0, self.is_training: False, self.theta_input: theta_input, self.eta_bn_prop: eta_bn_prop})
+            losses /= float(n_samples)
         return losses
 
     def compute_theta(self, X, Y, C):
