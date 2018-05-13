@@ -70,5 +70,5 @@ The requirements for the PyTorch version are the same as above, except that pyto
 
 If you find this repo useful, please be sure to cite the following publication:
 
-* Dallas Card, Chenhao Tan, and Noah A. Smith. Neural Models for Documents with Metadata. In *Proceedings of ACL* (2018). [[BibTeX](https://github.com/dallascard/scholar/blob/master/scholar.bib)] [preprint] [supplementary]
+* Dallas Card, Chenhao Tan, and Noah A. Smith. Neural Models for Documents with Metadata. In *Proceedings of ACL* (2018). [[paper](https://www.cs.cmu.edu/~dcard/resources/ACL_2018_paper.pdf)] [[supplementary](https://www.cs.cmu.edu/~dcard/resources/ACL_2018_supplementary.pdf)] [[BibTeX](https://github.com/dallascard/scholar/blob/master/scholar.bib)]
 
