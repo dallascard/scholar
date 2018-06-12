@@ -263,7 +263,7 @@ def main():
         if covar_emb_dim > 0:
             maw, sparsity = print_top_words(beta_c, vocab)
         else:
-            maw, sparsity = print_top_words(beta_c, vocab, covariate_names, n_top_words=16)
+            maw, sparsity = print_top_words(beta_c, vocab, covariate_names)
         print("sparsity in covariates = %0.4f" % sparsity)
         if output_dir is not None:
             np.savez(os.path.join(output_dir, 'beta_c.npz'), beta=beta_c, names=covariate_names)
