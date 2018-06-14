@@ -271,11 +271,11 @@ def process_subset(items, parsed, label_name, label_list, vocab, metadata_keys, 
         id = ids[i]
         if label_name is not None:
             label = item[label_name]
-            labels_df.loc[id][str(label)] = 1
+            labels_df.loc[id, str(label)] = 1
             label_vector_df.loc[id] = label_index[str(label)]
 
         for key in metadata_keys:
-            metadata_df.loc[id][key] = item['metadata'][key]
+            metadata_df.loc[id, key] = item['metadata'][key]
 
     # save labels
     if labels_df is not None:
