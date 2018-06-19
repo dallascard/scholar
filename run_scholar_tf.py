@@ -44,6 +44,8 @@ def main():
                       help='Drop binary covariates that occur less than this in training: default=%default')
     parser.add_option('--covar_inter', action="store_true", dest="covar_interactions", default=False,
                       help='Use covariate interactions in model: default=%default')
+    parser.add_option('--infer_covars', action="store_true", dest="infer_covars", default=False,
+                      help='Infer categorical covariate values after fitting model (slow): default=%default')
     parser.add_option('--c_layers', dest='classifier_layers', default=1,
                       help='Number of layers in (generative) classifier [0|1|2]: default=%default')
     parser.add_option('--exclude_covars', action="store_true", dest="exclude_covars", default=False,
@@ -94,6 +96,7 @@ def main():
     label_file_name = options.label_name
     covar_file_names = options.covar_names
     use_covar_interactions = options.covar_interactions
+    infer_covars = options.infer_covars
     label_emb_dim = int(options.label_emb_dim)
     covar_emb_dim = int(options.covar_emb_dim)
     min_covar_count = options.min_covar_count
@@ -296,7 +299,7 @@ def main():
         fh.write_list_to_text([str(perplexity)], os.path.join(output_dir, 'perplexity.test.txt'))
 
     # evaluate accuracy on covariates (if categorical)
-    if n_covariates > 0 and covariates_type == 'categorical':
+    if n_covariates > 0 and covariates_type == 'categorical' and infer_covars:
         print("Predicting categorical covariates")
         predictions = infer_categorical_covariate(model, network_architecture, train_X, train_labels)
         accuracy = float(np.sum(predictions == np.argmax(train_covariates, axis=1)) / float(len(train_covariates)))
