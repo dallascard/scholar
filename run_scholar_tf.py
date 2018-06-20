@@ -217,10 +217,13 @@ def main():
         vocab_size = len(
             vocab)
         vocab_dict = dict(zip(vocab, range(vocab_size)))
-        embeddings = np.array(rng.rand(vocab_size, 300) * 0.25 - 0.5, dtype=np.float32)
+        embeddings = np.array(rng.rand(vocab_size, embedding_dim) * 0.25 - 0.5, dtype=np.float32)
         count = 0
         print("Loading word vectors")
-        pretrained = gensim.models.KeyedVectors.load_word2vec_format(word2vec_file, binary=True)
+        if word2vec_file[-3:] == 'bin':
+            pretrained = gensim.models.KeyedVectors.load_word2vec_format(word2vec_file, binary=True)
+        else:
+            pretrained = gensim.models.KeyedVectors.load_word2vec_format(word2vec_file, binary=False)
 
         for word, index in vocab_dict.items():
             if word in pretrained:
