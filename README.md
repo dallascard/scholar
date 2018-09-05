@@ -24,14 +24,6 @@ It is recommended that you install the requirements using Anaconda. Specifically
 
 `conda install numpy scipy tensorflow pandas gensim scikit-learn`
 
-Alternatively, you can create a stable environment using:
-
-`conda create -n scholar --file requirements.txt`
-
-and activate it using
-
-`source activate scholar`
-
 Once the necessary packages are installed, there is no need to compile or install this repo.
 
 
