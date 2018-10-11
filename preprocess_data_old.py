@@ -64,9 +64,7 @@ def main():
     parser.add_option('--vocab_size', dest='vocab_size', default=None,
                       help='Size of the vocabulary (by most common, following above exclusions): default=%default')
     parser.add_option('--bigrams', action="store_true", dest="bigrams", default=False,
-                      help='Include bigrams: default=%default')
-    parser.add_option('--trigrams', action="store_true", default=False,
-                      help='Include trigrams: default=%default')
+                      help='Output bigrams instead of unigrams: default=%default')
     parser.add_option('--seed', dest='seed', default=42,
                       help='Random integer seed (only relevant for choosing test set): default=%default')
 
@@ -91,7 +89,6 @@ def main():
     lower = not options.no_lower
     min_length = int(options.min_length)
     bigrams = options.bigrams
-    trigrams = options.trigrams
     seed = options.seed
     if seed is not None:
         np.random.seed(int(seed))
@@ -99,10 +96,10 @@ def main():
     if not os.path.exists(output_dir):
         sys.exit("Error: output directory does not exist")
 
-    preprocess_data(train_infile, test_infile, output_dir, train_prefix, test_prefix, min_doc_count, max_doc_freq, vocab_size, stopwords, keep_num, keep_alphanum, strip_html, lower, min_length, label_name=label_name, bigrams=bigrams, trigrams=trigrams)
+    preprocess_data(train_infile, test_infile, output_dir, train_prefix, test_prefix, min_doc_count, max_doc_freq, vocab_size, stopwords, keep_num, keep_alphanum, strip_html, lower, min_length, label_name=label_name, bigrams=bigrams)
 
 
-def preprocess_data(train_infile, test_infile, output_dir, train_prefix, test_prefix, min_doc_count=0, max_doc_freq=1.0, vocab_size=None, stopwords=None, keep_num=False, keep_alphanum=False, strip_html=False, lower=True, min_length=3, label_name=None, output_plaintext=False, bigrams=False, trigrams=False):
+def preprocess_data(train_infile, test_infile, output_dir, train_prefix, test_prefix, min_doc_count=0, max_doc_freq=1.0, vocab_size=None, stopwords=None, keep_num=False, keep_alphanum=False, strip_html=False, lower=True, min_length=3, label_name=None, output_plaintext=False, bigrams=False):
 
     if stopwords == 'mallet':
         print("Using Mallet stopwords")
@@ -177,28 +174,12 @@ def preprocess_data(train_infile, test_infile, output_dir, train_prefix, test_pr
     word_counts = Counter()
     doc_counts = Counter()
     count = 0
-
-    # figure out vocabulary, possibly with bigrams
-    vocab = None
-    if bigrams:
-        list_of_counts = []
-        for i, item in enumerate(all_items):
-            if i % 1000 == 0 and count > 0:
-                print(i)
-
-            text = item['text']
-            unigrams, counts = tokenize(text, strip_html=strip_html, lower=lower, keep_numbers=keep_num, keep_alphanum=keep_alphanum, min_length=min_length, stopwords=stopword_set, bigrams=bigrams, trigrams=trigrams)
-            list_of_counts.append(counts)
-
-        if vocab_size is not None:
-            vocab = build_vocab(list_of_counts, int(vocab_size))
-
     for i, item in enumerate(all_items):
         if i % 1000 == 0 and count > 0:
             print(i)
 
         text = item['text']
-        tokens, _ = tokenize(text, strip_html=strip_html, lower=lower, keep_numbers=keep_num, keep_alphanum=keep_alphanum, min_length=min_length, stopwords=stopword_set, bigrams=bigrams, trigrams=trigrams, vocab=vocab)
+        tokens = tokenize(text, strip_html=strip_html, lower=lower, keep_numbers=keep_num, keep_alphanum=keep_alphanum, min_length=min_length, stopwords=stopword_set, bigrams=bigrams)
 
         # store the parsed documents
         if i < n_train:
@@ -290,11 +271,11 @@ def process_subset(items, parsed, label_name, label_list, vocab, metadata_keys, 
         id = ids[i]
         if label_name is not None:
             label = item[label_name]
-            labels_df.loc[id][str(label)] = 1
+            labels_df.loc[id, str(label)] = 1
             label_vector_df.loc[id] = label_index[str(label)]
 
         for key in metadata_keys:
-            metadata_df.loc[id][key] = item['metadata'][key]
+            metadata_df.loc[id, key] = item['metadata'][key]
 
     # save labels
     if labels_df is not None:
@@ -379,49 +360,29 @@ def process_subset(items, parsed, label_name, label_list, vocab, metadata_keys, 
     return sparse_X_sage, sage_aspect, sage_no_aspect, widx, vocab_for_sage
 
 
-def tokenize(text, strip_html=False, lower=True, keep_emails=False, keep_at_mentions=False, keep_numbers=False, keep_alphanum=False, min_length=3, stopwords=None, bigrams=False, trigrams=False, vocab=None):
+def tokenize(text, strip_html=False, lower=True, keep_emails=False, keep_at_mentions=False, keep_numbers=False, keep_alphanum=False, min_length=3, stopwords=None, bigrams=False):
     text = clean_text(text, strip_html, lower, keep_emails, keep_at_mentions)
     tokens = text.split()
-
-    if stopwords is not None:
-        tokens = ['_' if t in stopwords else t for t in tokens]
+    if bigrams:
+        if stopwords is None:
+            tokens = [tokens[i] + '_' + tokens[i+1] for i in range(len(tokens)-1)]
+        else:
+            tokens = [tokens[i] + '_' + tokens[i+1] for i in range(len(tokens)-1) if tokens[i] not in stopwords and tokens[i+1] not in stopwords]
+    elif stopwords is not None:
+        tokens = [t for t in tokens if t not in stopwords]
 
     # remove tokens that contain numbers
     if not keep_alphanum and not keep_numbers:
-        tokens = [t if alpha.match(t) else '_' for t in tokens]
-
+        tokens = [t for t in tokens if alpha.match(t)]
     # or just remove tokens that contain a combination of letters and numbers
     elif not keep_alphanum:
-        tokens = [t if alpha_or_num.match(t) else '_' for t in tokens]
+        tokens = [t for t in tokens if alpha_or_num.match(t)]
 
     # drop short tokens
     if min_length > 0:
-        tokens = [t if len(t) >= min_length else '_' for t in tokens]
+        tokens = [t for t in tokens if len(t) >= min_length]
 
-    counts = Counter()
-
-    unigrams = [t for t in tokens if t != '_']
-    counts.update(unigrams)
-    if bigrams:
-        bigrams = [tokens[i] + '_' + tokens[i+1] for i in range(len(tokens)-1) if tokens[i] != '_' and tokens[i+1] != '_']
-        counts.update(bigrams)
-
-    if trigrams:
-        trigrams = [tokens[i] + '_' + tokens[i+1] + '_' + tokens[i+2] for i in range(len(tokens)-2) if tokens[i] != '_' and tokens[i+1] != '_' and tokens[i+2] != '_']
-        counts.update(trigrams)
-
-    if vocab is not None:
-        tokens = [token for token in unigrams if token in vocab]
-        if bigrams:
-            bigrams = [token for token in bigrams if token in vocab]
-            tokens += bigrams
-        if trigrams:
-            trigrams = [token for token in trigrams if token in vocab]
-            tokens += trigrams
-    else:
-        tokens = unigrams
-
-    return tokens, counts
+    return tokens
 
 
 def clean_text(text, strip_html=False, lower=True, keep_emails=False, keep_at_mentions=False):
@@ -457,54 +418,6 @@ def clean_text(text, strip_html=False, lower=True, keep_emails=False, keep_at_me
     # strip off spaces on either end
     text = text.strip()
     return text
-
-
-def build_vocab(list_of_counts, vocab_size):
-    counts = Counter()
-    for c in list_of_counts:
-        counts.update(c)
-
-    ngrams_included = set()
-    converged = False
-
-    print("Building vocabulary")
-    while not converged:
-        most_common = counts.most_common(vocab_size)
-        # get the bigram among the list of most common
-        trigrams = [k for k, c in most_common if len(k.split('_')) == 3]
-        new_trigrams = set(trigrams) - ngrams_included
-
-        ngrams_included.update(trigrams)
-        # this is a bit wrong, because trigrams might doubly discount the middle term, but, should be okay...
-        for trigram in trigrams:
-            count = counts[trigram]
-            parts = trigram.split('_')
-            for part in parts:
-                counts[part] -= count
-            counts[parts[0] + '_' + parts[1]] -= count
-            counts[parts[1] + '_' + parts[2]] -= count
-
-        most_common = counts.most_common(vocab_size)
-
-        bigrams = [k for k, c in most_common if len(k.split('_')) == 2]
-        new_bigrams = set(bigrams) - ngrams_included
-
-        ngrams_included.update(bigrams)
-        # this is a bit wrong, because trigrams might doubly discount the middle term, but, should be okay...
-        for bigram in bigrams:
-            count = counts[bigram]
-            parts = bigram.split('_')
-            for part in parts:
-                counts[part] -= count
-
-        print(len(new_bigrams), len(new_trigrams))
-        if len(new_trigrams) + len(new_bigrams) == 0:
-            converged = True
-
-    #climate_terms = [(w, c) for w, c in counts.most_common(vocab_size) if 'climate' in w]
-
-    vocab = [k for k, c in counts.most_common(vocab_size)]
-    return vocab
 
 
 if __name__ == '__main__':
