@@ -503,7 +503,7 @@ def build_vocab(list_of_counts, vocab_size):
 
     #climate_terms = [(w, c) for w, c in counts.most_common(vocab_size) if 'climate' in w]
 
-    vocab = [k for k, c in counts.most_common(vocab_size)]
+    vocab = set([k for k, c in counts.most_common(vocab_size)])
     return vocab
 
 
