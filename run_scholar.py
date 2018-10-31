@@ -126,7 +126,7 @@ def main():
     embeddings, update_embeddings = load_word_vectors(options, rng, vocab)
 
     # create the model
-    model = Student(network_architecture, alpha=options.alpha, learning_rate=options.learning_rate, init_embeddings=embeddings, update_embeddings=update_embeddings, init_bg=init_bg, adam_beta1=options.momentum, device=options.device)
+    model = Scholar(network_architecture, alpha=options.alpha, learning_rate=options.learning_rate, init_embeddings=embeddings, update_embeddings=update_embeddings, init_bg=init_bg, adam_beta1=options.momentum, device=options.device)
 
     # train the model
     print("Optimizing full model")
