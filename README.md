@@ -133,7 +133,7 @@ You can also include interactions between topics and covairates by adding `--int
 
 ### Using word vectors:
 
-To initialize the encoder with pretrained word2vec vectors, download the Google news word2ve vectors from [GoogleNews-vectors-negative300.bin.gz] and use `--w2v path/to/file.bin.gz`
+To initialize the encoder with pretrained word2vec vectors, download GoogleNews-vectors-negative300.bin.gz from the [word2vec website](https://code.google.com/archive/p/word2vec/) and use `--w2v path/to/file.bin.gz`
 
 
 ### Using regularization:
@@ -144,7 +144,7 @@ To regularize the model weights, separate regularization strengths can be specif
 
 The default output directory is `output`, but this can be specified using `-o output_dir`
 
-The model can also evaluate on a validation set during training using a random sample of the training data using --dev-folds X, where 1/X of the training data will be used for validation.
+The model can also evaluate on a validation set during training using a random sample of the training data using `--dev-folds X`, where 1/X of the training data will be used for validation.
 
 Finally, it is also possible to include covariates which influence the document representation prior (instead of representing topic-like deviations). This can be done using the `--prior-covars covar_name` option. Note that this feature is not discussed in the accompanying publication (see below).
 
