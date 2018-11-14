@@ -68,7 +68,7 @@ def main():
                       help='Do not use background freq: default=%default')
     parser.add_option('--no-bn-anneal', action="store_true", dest="no_bn_anneal", default=False,
                       help='Do not anneal away from batchnorm: default=%default')
-    parser.add_option('--test-samples', dest='test_samples', default=20,
+    parser.add_option('--samples', dest='test_samples', default=20,
                       help='Number of samples to use in computing test perplexity: default=%default')
     parser.add_option('--dev-folds', dest='dev_folds', default=0,
                       help='Number of dev folds: default=%default')
