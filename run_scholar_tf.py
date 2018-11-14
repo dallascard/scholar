@@ -12,65 +12,67 @@ from scholar_tf import Scholar
 
 
 def main():
-    usage = "%prog input_dir train_prefix"
+    usage = "%prog input_dir"
     parser = OptionParser(usage=usage)
     parser.add_option('-a', dest='alpha', default=1.0,
                       help='Hyperparameter for logistic normal prior: default=%default')
     parser.add_option('-k', dest='n_topics', default=20,
                       help='Size of latent representation (~num topics): default=%default')
-    parser.add_option('-b', dest='batch_size', default=200,
+    parser.add_option('--batch-size', dest='batch_size', default=200,
                       help='Size of minibatches: default=%default')
     parser.add_option('-l', dest='learning_rate', default=0.002,
                       help='Initial learning rate: default=%default')
     parser.add_option('-m', dest='momentum', default=0.99,
                       help='beta1 for Adam: default=%default')
-    parser.add_option('-e', dest='epochs', default=250,
+    parser.add_option('--epochs', dest='epochs', default=250,
                       help='Number of epochs: default=%default')
-    parser.add_option('--en_layers', dest='encoder_layers', default=1,
+    parser.add_option('--train-prefix', type=str, default='train',
+                      help='Prefix of train set: default=%default')
+    parser.add_option('--test-prefix', dest='test_prefix', default=None,
+                      help='Prefix of test set: default=%default')
+    parser.add_option('--en-layers', dest='encoder_layers', default=1,
                       help='Number of encoder layers [0|1|2]: default=%default')
-    parser.add_option('--emb_dim', dest='embedding_dim', default=300,
+    parser.add_option('--emb-dim', dest='embedding_dim', default=300,
                       help='Dimension of input embeddings: default=%default')
-    parser.add_option('--en_short', action="store_true", dest="encoder_shortcuts", default=False,
+    parser.add_option('--en-short', action="store_true", dest="encoder_shortcuts", default=False,
                       help='Use shortcut connections on encoder: default=%default')
     parser.add_option('--labels', dest='label_name', default=None,
                       help='Read labels from input_dir/[train|test]_prefix.label_name.csv: default=%default')
-    parser.add_option('--covars', dest='covar_names', default=None,
+    parser.add_option('--topic-covars', dest='covar_names', default=None,
                       help='Read covars from files with these names (comma-separated): default=%default')
-    parser.add_option('--label_emb_dim', dest='label_emb_dim', default=-1,
+    parser.add_option('--label-emb-dim', dest='label_emb_dim', default=-1,
                       help="Class embedding dimension [-1 = identity; 0 = don't encode]: default=%default")
-    parser.add_option('--covar_emb_dim', dest='covar_emb_dim', default=-1,
+    parser.add_option('--covar-emb-dim', dest='covar_emb_dim', default=-1,
                       help="Covariate embedding dimension [-1 = identity; 0 = don't encode]: default=%default")
-    parser.add_option('--min_covar_count', dest='min_covar_count', default=None,
+    parser.add_option('--min-covar-count', dest='min_covar_count', default=None,
                       help='Drop binary covariates that occur less than this in training: default=%default')
-    parser.add_option('--covar_inter', action="store_true", dest="covar_interactions", default=False,
+    parser.add_option('--interactions', action="store_true", dest="covar_interactions", default=False,
                       help='Use covariate interactions in model: default=%default')
-    parser.add_option('--infer_covars', action="store_true", dest="infer_covars", default=False,
+    parser.add_option('--infer-covars', action="store_true", dest="infer_covars", default=False,
                       help='Infer categorical covariate values after fitting model (slow): default=%default')
-    parser.add_option('--c_layers', dest='classifier_layers', default=1,
+    parser.add_option('--c-layers', dest='classifier_layers', default=1,
                       help='Number of layers in (generative) classifier [0|1|2]: default=%default')
-    parser.add_option('--exclude_covars', action="store_true", dest="exclude_covars", default=False,
+    parser.add_option('--exclude-covars', action="store_true", dest="exclude_covars", default=False,
                       help='Exclude covariates from the classifier: default=%default')
     parser.add_option('-r', action="store_true", dest="regularize", default=False,
                       help='Apply adaptive regularization for sparsity in topics: default=%default')
-    parser.add_option('-t', dest='test_prefix', default=None,
-                      help='Prefix of test set: default=%default')
     parser.add_option('-o', dest='output_dir', default='output',
                       help='Output directory: default=%default')
     parser.add_option('--w2v', dest='word2vec_file', default=None,
                       help='Use this word2vec .bin file to initialize and fix embeddings: default=%default')
-    parser.add_option('--vocab_size', dest='vocab_size', default=None,
+    parser.add_option('--vocab-size', dest='vocab_size', default=None,
                       help='Filter the vocabulary keeping the most common n words: default=%default')
-    parser.add_option('--update_bg', action="store_true", dest="update_bg", default=False,
+    parser.add_option('--update-bg', action="store_true", dest="update_bg", default=False,
                       help='Update background parameters: default=%default')
-    parser.add_option('--no_bg', action="store_true", dest="no_bg", default=False,
+    parser.add_option('--no-bg', action="store_true", dest="no_bg", default=False,
                       help='Do not use background freq: default=%default')
-    parser.add_option('--no_bn_anneal', action="store_true", dest="no_bn_anneal", default=False,
+    parser.add_option('--no-bn-anneal', action="store_true", dest="no_bn_anneal", default=False,
                       help='Do not anneal away from batchnorm: default=%default')
-    parser.add_option('--test_samples', dest='test_samples', default=20,
+    parser.add_option('--test-samples', dest='test_samples', default=20,
                       help='Number of samples to use in computing test perplexity: default=%default')
-    parser.add_option('--dev_folds', dest='dev_folds', default=0,
+    parser.add_option('--dev-folds', dest='dev_folds', default=0,
                       help='Number of dev folds: default=%default')
-    parser.add_option('--dev_fold', dest='dev_fold', default=0,
+    parser.add_option('--dev-fold', dest='dev_fold', default=0,
                       help='Fold to use as dev (if dev_folds > 0): default=%default')
     parser.add_option('--opt', dest='optimizer', default='adam',
                       help='Optimization algorithm to use [adam|adagrad|sgd]: default=%default')
@@ -82,8 +84,8 @@ def main():
     (options, args) = parser.parse_args()
 
     input_dir = args[0]
-    train_prefix = args[1]
 
+    train_prefix = options.train_prefix
     alpha = float(options.alpha)
     n_topics = int(options.n_topics)
     batch_size = int(options.batch_size)

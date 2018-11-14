@@ -20,23 +20,23 @@ a document-word count matrix for both train and test, and use the "group" field 
 
 To train a basic model, use:
 
-`python run_scholar_tf.py data/20ng/20ng_talk/ train -k 6`
+`python run_scholar_tf.py data/20ng/20ng_talk/ -k 6`
 
-The arguments are [input directory] [prefix of training data] [-k number of topics]
+The arguments are [input directory] [-k number of topics]
 
-Using "train" as the prefix, it will look for the files train.npz and train.vocab.json in the input directory.
+It will look for the files train.npz and train.vocab.json in the input directory.
 The output will show the most highly-weighted words in six topics, plus the background.
 
 To include evaluation on dev data (randomly sampled from test) and separate test data, use:
 
-`python run_scholar_tf.py data/20ng/20ng_talk/ train -k 6 --dev_folds 5 -t test`
+`python run_scholar_tf.py data/20ng/20ng_talk/ -k 6 --dev-folds 5 --test-prefix test`
 
-`-t` specifies the prefix for the evaluation data. As with the training files, this will look for test.npz in
+`--test-prefix` specifies the prefix for the evaluation data. As with the training files, this will look for test.npz in
 the input directory. Note that this only uses a single dev fold, which will be 1/5th of the training data.
 
 To include the newsgroup label as a label (jointly generated with words), use:
 
-`python run_scholar_tf.py data/20ng/20ng_talk/ train -k 6 --dev_folds 5 -t test --labels group`
+`python run_scholar_tf.py data/20ng/20ng_talk/ -k 6 --dev-folds 5 --test-prefix test --labels group`
 
 This assumes that there is a "group" file for both train and test. --label can be used to specify the name.
 For example, the above will look in the input directory for train.group.csv and test.group.csv
@@ -45,29 +45,29 @@ Running for longer may improve the classification accuracy
 
 To instead use the group as a covariate instead of a label, use:
 
-`python run_scholar_tf.py data/20ng/20ng_talk/ train -k 6 --dev_folds 5 -t test --covars group`
+`python run_scholar_tf.py data/20ng/20ng_talk/ -k 6 --dev-folds 5 --test-prefix test --topic-covars group`
 
 This will now output six topics, plus four covariate deviations, one for each group.
 
 To also include interactions in the model, use:
 
-`python run_scholar_tf.py data/20ng/20ng_talk/ train -k 6 --dev_folds 5 -t test --covars group --covar_inter`
+`python run_scholar_tf.py data/20ng/20ng_talk/ -k 6 --dev-folds 5 --test-prefix test --topic-covars group --interactions`
 
 It is also possible to load multiple covariate files simultaneously. For example, if we had another file called train.year.csv, we could run:
 
-`python run_scholar_tf.py data/20ng/20ng_talk/ train -k 6 --dev_folds 5 -t test --covars group,year`
+`python run_scholar_tf.py data/20ng/20ng_talk/ -k 6 --dev-folds 5 --test-prefix test --topic-covars group,year`
 
 To initialize the model with word vectors, use:
 
-`python run_scholar_tf.py data/20ng/20ng_talk/ train -k 6 --dev_folds 5 -t test --w2v GoogleNews-vectors-negative300.bin`
+`python run_scholar_tf.py data/20ng/20ng_talk/ -k 6 --dev-folds 5 --test-prefix test --w2v GoogleNews-vectors-negative300.bin`
 
 where the necessary file can be downloaded from https://github.com/mmihaltz/word2vec-GoogleNews-vectors and other places.
 
 Other useful options include:
 
 - `-a [hyperparameter of logistic normal prior]; default=1.0`
-- `-b [batch size]; default=200`
-- `-e [number of epochs]; default=250`
+- `--batch-size [batch size]; default=200`
+- `--epochs [number of epochs]; default=250`
 - `-l [learning rate]; default=0.002`
 - `-m [momentum]; default=0.99`
 - `-o [output directory]; default=output`
