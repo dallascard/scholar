@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import string
 from optparse import OptionParser
 from collections import Counter
@@ -32,11 +33,11 @@ alpha_or_num = re.compile('^[a-zA-Z_]+|[0-9_]+$')
 alphanum = re.compile('^[a-zA-Z0-9_]+$')
 
 
-def main():
+def main(args):
     usage = "%prog train.jsonlist output_dir"
     parser = OptionParser(usage=usage)
     parser.add_option('--label', dest='label', default=None,
-                      help='field to use as label: default=%default')
+                      help='field(s) to use as label (comma-separated): default=%default')
     parser.add_option('--test', dest='test', default=None,
                       help='Test data (test.jsonlist): default=%default')
     parser.add_option('--train-prefix', dest='train_prefix', default='train',
@@ -64,7 +65,7 @@ def main():
     parser.add_option('--seed', dest='seed', default=42,
                       help='Random integer seed (only relevant for choosing test set): default=%default')
 
-    (options, args) = parser.parse_args()
+    (options, args) = parser.parse_args(args)
 
     train_infile = args[0]
     output_dir = args[1]
@@ -72,7 +73,7 @@ def main():
     test_infile = options.test
     train_prefix = options.train_prefix
     test_prefix = options.test_prefix
-    label_field = options.label
+    label_fields = options.label
     min_doc_count = int(options.min_doc_count)
     max_doc_freq = float(options.max_doc_freq)
     vocab_size = options.vocab_size
@@ -91,10 +92,10 @@ def main():
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    preprocess_data(train_infile, test_infile, output_dir, train_prefix, test_prefix, min_doc_count, max_doc_freq, vocab_size, stopwords, keep_num, keep_alphanum, strip_html, lower, min_length, label_field=label_field)
+    preprocess_data(train_infile, test_infile, output_dir, train_prefix, test_prefix, min_doc_count, max_doc_freq, vocab_size, stopwords, keep_num, keep_alphanum, strip_html, lower, min_length, label_fields=label_fields)
 
 
-def preprocess_data(train_infile, test_infile, output_dir, train_prefix, test_prefix, min_doc_count=0, max_doc_freq=1.0, vocab_size=None, stopwords=None, keep_num=False, keep_alphanum=False, strip_html=False, lower=True, min_length=3, label_field=None):
+def preprocess_data(train_infile, test_infile, output_dir, train_prefix, test_prefix, min_doc_count=0, max_doc_freq=1.0, vocab_size=None, stopwords=None, keep_num=False, keep_alphanum=False, strip_html=False, lower=True, min_length=3, label_fields=None):
 
     if stopwords == 'mallet':
         print("Using Mallet stopwords")
@@ -125,16 +126,24 @@ def preprocess_data(train_infile, test_infile, output_dir, train_prefix, test_pr
     all_items = train_items + test_items
     n_items = n_train + n_test
 
-    label_set = set()
-    for i, item in enumerate(all_items):
-        if label_field is not None:
-            label_set.add(item[label_field])
-
-    label_list = list(label_set)
-    label_list.sort()
-    n_labels = len(label_list)
-    if label_field is not None:
-        print("Using label %s with %d classes" % (label_field, n_labels))
+    label_lists = {}
+    if label_fields is not None:
+        if ',' in label_fields:
+            label_fields = label_fields.split(',')
+        else:
+            label_fields = [label_fields]
+        for label_name in label_fields:
+            label_set = set()
+            for i, item in enumerate(all_items):
+                if label_name is not None:
+                    label_set.add(item[label_name])
+            label_list = list(label_set)
+            label_list.sort()
+            n_labels = len(label_list)
+            print("Found label %s with %d classes" % (label_name, n_labels))
+            label_lists[label_name] = label_list
+    else:
+        label_fields = []
 
     # make vocabulary
     train_parsed = []
@@ -171,7 +180,8 @@ def preprocess_data(train_infile, test_infile, output_dir, train_prefix, test_pr
     doc_freqs = np.array(doc_counts) / float(n_items)
     vocab = [word for i, word in enumerate(words) if doc_counts[i] >= min_doc_count and doc_freqs[i] <= max_doc_freq]
     most_common = [word for i, word in enumerate(words) if doc_freqs[i] > max_doc_freq]
-    print("Excluding most common:", most_common)
+    if max_doc_freq < 1.0:
+        print("Excluding words with frequency > {:0.2f}:".format(max_doc_freq), most_common)
 
     print("Vocab size after filtering = %d" % len(vocab))
     if vocab_size is not None:
@@ -186,9 +196,9 @@ def preprocess_data(train_infile, test_infile, output_dir, train_prefix, test_pr
 
     fh.write_to_json(vocab, os.path.join(output_dir, train_prefix + '.vocab.json'))
 
-    train_X_sage, tr_aspect, tr_no_aspect, tr_widx, vocab_for_sage = process_subset(train_items, train_parsed, label_field, label_list, vocab, output_dir, train_prefix)
+    train_X_sage, tr_aspect, tr_no_aspect, tr_widx, vocab_for_sage = process_subset(train_items, train_parsed, label_fields, label_lists, vocab, output_dir, train_prefix)
     if n_test > 0:
-        test_X_sage, te_aspect, te_no_aspect, _, _= process_subset(test_items, test_parsed, label_field, label_list, vocab, output_dir, test_prefix)
+        test_X_sage, te_aspect, te_no_aspect, _, _= process_subset(test_items, test_parsed, label_fields, label_lists, vocab, output_dir, test_prefix)
 
     train_sum = np.array(train_X_sage.sum(axis=0))
     print("%d words missing from training data" % np.sum(train_sum == 0))
@@ -207,10 +217,11 @@ def preprocess_data(train_infile, test_infile, output_dir, train_prefix, test_pr
         sage_output['te_aspect'] = te_no_aspect
     savemat(os.path.join(output_dir, 'sage_unlabeled.mat'), sage_output)
 
+    print("Done!")
 
-def process_subset(items, parsed, label_field, label_list, vocab, output_dir, output_prefix):
+
+def process_subset(items, parsed, label_fields, label_lists, vocab, output_dir, output_prefix):
     n_items = len(items)
-    n_labels = len(label_list)
     vocab_size = len(vocab)
     vocab_index = dict(zip(vocab, range(vocab_size)))
 
@@ -222,27 +233,27 @@ def process_subset(items, parsed, label_field, label_list, vocab, output_dir, ou
         ids = [str(i) for i in range(n_items)]
 
     # create a label index using string representations
-    label_list_strings = [str(label) for label in label_list]
-    label_index = dict(zip(label_list_strings, range(n_labels)))
+    for label_field in label_fields:
+        label_list = label_lists[label_field]
+        n_labels = len(label_list)
+        label_list_strings = [str(label) for label in label_list]
+        label_index = dict(zip(label_list_strings, range(n_labels)))
 
-    # convert labels to a data frame
-    if n_labels > 0:
-        label_matrix = np.zeros([n_items, n_labels], dtype=int)
-        label_vector = np.zeros(n_items, dtype=int)
+        # convert labels to a data frame
+        if n_labels > 0:
+            label_matrix = np.zeros([n_items, n_labels], dtype=int)
+            label_vector = np.zeros(n_items, dtype=int)
 
-        for i, item in enumerate(items):
-            id = ids[i]
-            label = item[label_field]
-            label_matrix[i, label_index[str(label)]] = 1
-            label_vector[i] = label_index[str(label)]
+            for i, item in enumerate(items):
+                label = item[label_field]
+                label_matrix[i, label_index[str(label)]] = 1
+                label_vector[i] = label_index[str(label)]
 
-        labels_df = pd.DataFrame(label_matrix, index=ids, columns=label_list_strings)
-        labels_df.to_csv(os.path.join(output_dir, output_prefix + '.' + label_field + '.csv'))
-        label_vector_df = pd.DataFrame(label_vector, index=ids, columns=[label_field])
-        label_vector_df.to_csv(os.path.join(output_dir, output_prefix + '.label_vector.csv'))
-
-    else:
-        print("No labels found")
+            labels_df = pd.DataFrame(label_matrix, index=ids, columns=label_list_strings)
+            labels_df.to_csv(os.path.join(output_dir, output_prefix + '.' + label_field + '.csv'))
+            label_vector_df = pd.DataFrame(label_vector, index=ids, columns=[label_field])
+            if n_labels == 2:
+                label_vector_df.to_csv(os.path.join(output_dir, output_prefix + '.' + label_field + '_vector.csv'))
 
     X = np.zeros([n_items, vocab_size], dtype=int)
 
@@ -273,8 +284,9 @@ def process_subset(items, parsed, label_field, label_list, vocab, output_dir, ou
             dat_string += ' '.join([str(k) + ':' + str(int(v)) for k, v in zip(list(counter.keys()), list(counter.values()))])
             dat_strings.append(dat_string)
 
-            if label_field is not None:
-                label = items[i][label_field]
+            # for dat formart, assume just one label is given
+            if len(label_fields) > 0:
+                label = items[i][label_fields[-1]]
                 dat_labels.append(str(label_index[str(label)]))
 
             values = list(counter.values())
@@ -284,8 +296,7 @@ def process_subset(items, parsed, label_field, label_list, vocab, output_dir, ou
     sparse_X = sparse.csr_matrix(X)
     fh.save_sparse(sparse_X, os.path.join(output_dir, output_prefix + '.npz'))
 
-    print(sparse_X.shape)
-    print(len(dat_strings))
+    print("Size of {:s} document-term matrix:".format(output_prefix), sparse_X.shape)
 
     fh.write_to_json(ids, os.path.join(output_dir, output_prefix + '.ids.json'))
 
@@ -301,7 +312,9 @@ def process_subset(items, parsed, label_field, label_list, vocab, output_dir, ou
     sparse_X_sage = sparse.csr_matrix(X, dtype=float)
     vocab_for_sage = np.zeros((vocab_size,), dtype=np.object)
     vocab_for_sage[:] = vocab
-    if n_labels > 0:
+
+    # for SAGE, assume only a single label has been given
+    if len(label_fields) > 0:
         # convert array to vector of labels for SAGE
         sage_aspect = np.argmax(np.array(labels_df.values, dtype=float), axis=1) + 1
     else:
@@ -380,4 +393,5 @@ def clean_text(text, strip_html=False, lower=True, keep_emails=False, keep_at_me
 
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1:])
+

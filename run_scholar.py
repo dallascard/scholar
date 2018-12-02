@@ -10,7 +10,7 @@ import file_handling as fh
 from scholar import Scholar
 
 
-def main():
+def main(args):
     usage = "%prog input_dir"
     parser = OptionParser(usage=usage)
     parser.add_option('-k', dest='n_topics', type=int, default=20,
@@ -39,6 +39,8 @@ def main():
                       help='Drop prior covariates with less than this many non-zero values in the training dataa: default=%default')
     parser.add_option('--min-topic-covar-count', type=int, default=None,
                       help='Drop topic covariates with less than this many non-zero values in the training dataa: default=%default')
+    parser.add_option('-r', action="store_true", default=False,
+                      help='Use default regularization: default=%default')
     parser.add_option('--l1-topics', type=float, default=0.0,
                       help='Regularization strength on topic weights: default=%default')
     parser.add_option('--l1-topic-covars', type=float, default=0.0,
@@ -66,9 +68,14 @@ def main():
     parser.add_option('--seed', type=int, default=None,
                       help='Random seed: default=%default')
 
-    options, args = parser.parse_args()
+    options, args = parser.parse_args(args)
 
     input_dir = args[0]
+
+    if options.r:
+        options.l1_topics = 1.0
+        options.l1_topic_covars = 1.0
+        options.l1_interactions = 1.0
 
     if options.seed is not None:
         rng = np.random.RandomState(options.seed)
@@ -76,7 +83,7 @@ def main():
         rng = np.random.RandomState(np.random.randint(0, 100000))
 
     # load the training data
-    train_X, vocab, row_selector = load_word_counts(input_dir, options.train_prefix)
+    train_X, vocab, row_selector, train_ids = load_word_counts(input_dir, options.train_prefix)
     train_labels, label_type, label_names, n_labels = load_labels(input_dir, options.train_prefix, row_selector, options)
     train_prior_covars, prior_covar_selector, prior_covar_names, n_prior_covars = load_covariates(input_dir, options.train_prefix, row_selector, options.prior_covars, options.min_prior_covar_count)
     train_topic_covars, topic_covar_selector, topic_covar_names, n_topic_covars = load_covariates(input_dir, options.train_prefix, row_selector, options.topic_covars, options.min_topic_covar_count)
@@ -92,12 +99,18 @@ def main():
     train_labels, dev_labels = split_matrix(train_labels, train_indices, dev_indices)
     train_prior_covars, dev_prior_covars = split_matrix(train_prior_covars, train_indices, dev_indices)
     train_topic_covars, dev_topic_covars = split_matrix(train_topic_covars, train_indices, dev_indices)
+    if dev_indices is not None:
+        dev_ids = [train_ids[i] for i in dev_indices]
+        train_ids = [train_ids[i] for i in train_indices]
+    else:
+        dev_ids = None
+
 
     n_train, _ = train_X.shape
 
     # load the test data
     if options.test_prefix is not None:
-        test_X, _, row_selector = load_word_counts(input_dir, options.test_prefix, vocab=vocab)
+        test_X, _, row_selector, test_ids = load_word_counts(input_dir, options.test_prefix, vocab=vocab)
         test_labels, _, _, _ = load_labels(input_dir, options.test_prefix, row_selector, options)
         test_prior_covars, _, _, _ = load_covariates(input_dir, options.test_prefix, row_selector, options.prior_covars, covariate_selector=prior_covar_selector)
         test_topic_covars, _, _, _ = load_covariates(input_dir, options.test_prefix, row_selector, options.topic_covars, covariate_selector=topic_covar_selector)
@@ -161,17 +174,18 @@ def main():
             predict_labels_and_evaluate(model, test_X, test_labels, test_prior_covars, test_topic_covars, options.output_dir, subset='test')
 
     # print label probabilities for each topic
-    print_topic_label_associations(options, label_names, model, n_prior_covars, n_topic_covars)
+    if n_labels > 0:
+        print_topic_label_associations(options, label_names, model, n_prior_covars, n_topic_covars)
 
     # save document representations
     print("Saving document representations")
-    save_document_representations(model, train_X, train_labels, train_prior_covars, train_topic_covars, options.output_dir, 'train', batch_size=options.batch_size)
+    save_document_representations(model, train_X, train_labels, train_prior_covars, train_topic_covars, train_ids, options.output_dir, 'train', batch_size=options.batch_size)
 
     if dev_X is not None:
-        save_document_representations(model, dev_X, dev_labels, dev_prior_covars, dev_topic_covars, options.output_dir, 'dev', batch_size=options.batch_size)
+        save_document_representations(model, dev_X, dev_labels, dev_prior_covars, dev_topic_covars, dev_ids, options.output_dir, 'dev', batch_size=options.batch_size)
 
     if n_test > 0:
-        save_document_representations(model, test_X, test_labels, test_prior_covars, test_topic_covars, options.output_dir, 'test', batch_size=options.batch_size)
+        save_document_representations(model, test_X, test_labels, test_prior_covars, test_topic_covars, test_ids, options.output_dir, 'test', batch_size=options.batch_size)
 
 
 def load_word_counts(input_dir, input_prefix, vocab=None):
@@ -186,12 +200,15 @@ def load_word_counts(input_dir, input_prefix, vocab=None):
     assert vocab_size == len(vocab)
     print("Loaded %d documents with %d features" % (n_items, vocab_size))
 
+    ids = fh.read_json(os.path.join(input_dir, input_prefix + '.ids.json'))
+
     # filter out empty documents and return a boolean selector for filtering labels and covariates
-    row_selector = X.sum(axis=1) > 0
+    row_selector = np.array(X.sum(axis=1) > 0, dtype=bool)
     print("Found %d non-empty documents" % np.sum(row_selector))
     X = X[row_selector, :]
+    ids = [doc_id for i, doc_id in enumerate(ids) if row_selector[i]]
 
-    return X, vocab, row_selector
+    return X, vocab, row_selector, ids
 
 
 def load_labels(input_dir, input_prefix, row_selector, options):
@@ -347,7 +364,7 @@ def make_network(options, vocab_size, label_type=None, n_labels=0, n_prior_covar
     return network_architecture
 
 
-def train(model, network_architecture, X, Y, PC, TC, batch_size=200, training_epochs=100, display_step=5, X_dev=None, Y_dev=None, PC_dev=None, TC_dev=None, bn_anneal=True, init_eta_bn_prop=1.0, rng=None, min_weights_sq=1e-7):
+def train(model, network_architecture, X, Y, PC, TC, batch_size=200, training_epochs=100, display_step=10, X_dev=None, Y_dev=None, PC_dev=None, TC_dev=None, bn_anneal=True, init_eta_bn_prop=1.0, rng=None, min_weights_sq=1e-7):
     # Train the model
     n_train, vocab_size = X.shape
     mb_gen = create_minibatch(X, Y, PC, TC, batch_size=batch_size, rng=rng)
@@ -583,7 +600,7 @@ def print_and_save_weights(options, model, vocab, prior_covar_names=None, topic_
             print("sparsity in covariate interactions = %0.4f" % sparsity)
 
 
-def print_top_words(beta, feature_names, topic_names=None, n_top_words=8, sparsity_threshold=1e-5, values=False):
+def print_top_words(beta, feature_names, topic_names=None, n_pos=8, n_neg=8, sparsity_threshold=1e-5, values=False):
     """
     Display the highest and lowest weighted words in each topic, along with mean ave weight and sparisty
     """
@@ -595,16 +612,17 @@ def print_top_words(beta, feature_names, topic_names=None, n_top_words=8, sparsi
         order.reverse()
         output = ''
         # get the top words
-        for j in range(n_top_words):
+        for j in range(n_pos):
             if np.abs(beta[i][order[j]]) > sparsity_threshold:
                 output += feature_names[order[j]] + ' '
                 if values:
                     output += '(' + str(beta[i][order[j]]) + ') '
 
         order.reverse()
-        output += ' / '
+        if n_neg > 0:
+            output += ' / '
         # get the bottom words
-        for j in range(n_top_words):
+        for j in range(n_neg):
             if np.abs(beta[i][order[j]]) > sparsity_threshold:
                 output += feature_names[order[j]] + ' '
                 if values:
@@ -615,7 +633,7 @@ def print_top_words(beta, feature_names, topic_names=None, n_top_words=8, sparsi
         maw = np.mean(np.abs(beta[i]))
         sparsity_vals.append(sparsity)
         maw_vals.append(maw)
-        output += ': MAW=%0.4f' % maw + '; sparsity=%0.4f' % sparsity
+        output += '; sparsity=%0.4f' % sparsity
 
         # print the topic summary
         if topic_names is not None:
@@ -696,27 +714,33 @@ def print_topic_label_associations(options, label_names, model, n_prior_covars, 
     if options.n_labels > 0 and options.n_labels < 7:
         print("Label probabilities based on topics")
         print("Labels:", ' '.join([name for name in label_names]))
-        for k in range(options.n_topics):
-            Z = np.zeros([1, options.n_topics]).astype('float32')
-            Z[0, k] = 1.0
-            Y = None
-            if n_prior_covars > 0:
-                PC = np.zeros([1, n_prior_covars]).astype('float32')
-            else:
-                PC = None
-            if n_topic_covars > 0:
-                TC = np.zeros([1, n_topic_covars]).astype('float32')
-            else:
-                TC = None
+    probs_list = []
+    for k in range(options.n_topics):
+        Z = np.zeros([1, options.n_topics]).astype('float32')
+        Z[0, k] = 1.0
+        Y = None
+        if n_prior_covars > 0:
+            PC = np.zeros([1, n_prior_covars]).astype('float32')
+        else:
+            PC = None
+        if n_topic_covars > 0:
+            TC = np.zeros([1, n_topic_covars]).astype('float32')
+        else:
+            TC = None
 
-            probs = model.predict_from_topics(Z, PC, TC)
+        probs = model.predict_from_topics(Z, PC, TC)
+        probs_list.append(probs)
+        if options.n_labels > 0 and options.n_labels < 7:
             output = str(k) + ': '
             for i in range(options.n_labels):
                 output += '%.4f ' % probs[0, i]
             print(output)
 
+    probs = np.vstack(probs_list)
+    np.savez(os.path.join(options.output_dir, 'topics_to_labels.npz'), probs=probs, label=label_names)
 
-def save_document_representations(model, X, Y, PC, TC, output_dir, partition, batch_size=200):
+
+def save_document_representations(model, X, Y, PC, TC, ids, output_dir, partition, batch_size=200):
     # compute the mean of the posterior of the latent representation for each documetn and save it
     if Y is not None:
         Y = np.zeros_like(Y)
@@ -730,9 +754,9 @@ def save_document_representations(model, X, Y, PC, TC, output_dir, partition, ba
         thetas.append(model.compute_theta(batch_xs, batch_ys, batch_pcs, batch_tcs))
     theta = np.vstack(thetas)
 
-    np.savez(os.path.join(output_dir, 'theta.' + partition + '.npz'), theta=theta)
+    np.savez(os.path.join(output_dir, 'theta.' + partition + '.npz'), theta=theta, ids=ids)
 
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1:])
 

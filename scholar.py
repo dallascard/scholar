@@ -118,7 +118,7 @@ class Scholar(object):
         if TC is not None:
             TC = torch.Tensor(TC)
         probs = self._model.predict_from_theta(theta, PC, TC)
-        return probs
+        return probs.to('cpu').detach().numpy()
 
     def get_losses(self, X, Y, PC, TC, eta_bn_prop=0.0, n_samples=0):
         """
@@ -259,6 +259,7 @@ class torchScholar(nn.Module):
         self.l1_beta_ci_reg = config['l1_beta_ci_reg']
         self.l2_prior_reg = config['l2_prior_reg']
         self.device = device
+        self.classify_from_covars = False
 
         # create a layer for prior covariates to influence the document prior
         if self.n_prior_covars > 0:
@@ -272,10 +273,12 @@ class torchScholar(nn.Module):
         classifier_input_dim = self.n_topics
         if self.n_prior_covars > 0:
             emb_size += self.n_prior_covars
-            classifier_input_dim += self.n_prior_covars
+            if self.classify_from_covars:
+                classifier_input_dim += self.n_prior_covars
         if self.n_topic_covars > 0:
             emb_size += self.n_topic_covars
-            classifier_input_dim += self.n_topic_covars
+            if self.classify_from_covars:
+                classifier_input_dim += self.n_topic_covars
         if self.n_labels > 0:
             emb_size += self.n_labels
 
@@ -422,10 +425,11 @@ class torchScholar(nn.Module):
         if self.n_labels > 0:
 
             classifier_inputs = [theta]
-            if self.n_prior_covars > 0:
-                classifier_inputs.append(PC)
-            if self.n_topic_covars > 0:
-                classifier_inputs.append(TC)
+            if self.classify_from_covars:
+                if self.n_prior_covars > 0:
+                    classifier_inputs.append(PC)
+                if self.n_topic_covars > 0:
+                    classifier_inputs.append(TC)
 
             if len(classifier_inputs) > 1:
                 classifier_input = torch.cat(classifier_inputs, dim=1).to(self.device)
@@ -513,10 +517,11 @@ class torchScholar(nn.Module):
         if self.n_labels > 0:
 
             classifier_inputs = [theta]
-            if self.n_prior_covars > 0:
-                classifier_inputs.append(PC)
-            if self.n_topic_covars > 0:
-                classifier_inputs.append(TC)
+            if self.classify_from_covars:
+                if self.n_prior_covars > 0:
+                    classifier_inputs.append(PC)
+                if self.n_topic_covars > 0:
+                    classifier_inputs.append(TC)
             if len(classifier_inputs) > 1:
                 classifier_input = torch.cat(classifier_inputs, dim=1).to(self.device)
             else:
