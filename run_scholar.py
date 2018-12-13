@@ -79,8 +79,10 @@ def main(args):
 
     if options.seed is not None:
         rng = np.random.RandomState(options.seed)
+        seed = options.seed
     else:
         rng = np.random.RandomState(np.random.randint(0, 100000))
+        seed = None
 
     # load the training data
     train_X, vocab, row_selector, train_ids = load_word_counts(input_dir, options.train_prefix)
@@ -139,7 +141,7 @@ def main(args):
     embeddings, update_embeddings = load_word_vectors(options, rng, vocab)
 
     # create the model
-    model = Scholar(network_architecture, alpha=options.alpha, learning_rate=options.learning_rate, init_embeddings=embeddings, update_embeddings=update_embeddings, init_bg=init_bg, adam_beta1=options.momentum, device=options.device)
+    model = Scholar(network_architecture, alpha=options.alpha, learning_rate=options.learning_rate, init_embeddings=embeddings, update_embeddings=update_embeddings, init_bg=init_bg, adam_beta1=options.momentum, device=options.device, seed=seed)
 
     # train the model
     print("Optimizing full model")

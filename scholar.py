@@ -9,7 +9,7 @@ from torch.nn.init import xavier_uniform_
 class Scholar(object):
 
     def __init__(self, config, alpha=1.0, learning_rate=0.001, init_embeddings=None, update_embeddings=True,
-                 init_bg=None, update_background=True, adam_beta1=0.99, adam_beta2=0.999, device=None):
+                 init_bg=None, update_background=True, adam_beta1=0.99, adam_beta2=0.999, device=None, seed=None):
 
         """
         Create the model
@@ -24,6 +24,10 @@ class Scholar(object):
         :param adam_beta2: second hyperparameter for Adam
         :param device: (int) the number of the GPU to use
         """
+
+        if seed is not None:
+            torch.manual_seed(seed)
+            torch.backends.cudnn.deterministic = True
 
         self.network_architecture = config
         self.learning_rate = learning_rate
@@ -385,6 +389,8 @@ class torchScholar(nn.Module):
 
         posterior_mean_bn = self.mean_bn_layer(posterior_mean)
         posterior_logvar_bn = self.logvar_bn_layer(posterior_logvar)
+        #posterior_mean_bn = posterior_mean
+        #posterior_logvar_bn = posterior_logvar
 
         posterior_var = posterior_logvar_bn.exp().to(self.device)
 
@@ -414,6 +420,7 @@ class torchScholar(nn.Module):
 
         # pass the unnormalized word probabilities through a batch norm layer
         eta_bn = self.eta_bn_layer(eta)
+        #eta_bn = eta
 
         # compute X recon with and without batchnorm on eta, and take a convex combination of them
         X_recon_bn = F.softmax(eta_bn, dim=1)
