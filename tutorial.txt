@@ -1,4 +1,6 @@
-### Tutorial:
+## Tutorial:
+
+*Note*: This tutorial is for the tensorflow version of scholar, which is what was used in the paper. However, we recommend the pytorch version, which has an accompying tutorial in an ipython notebook (tutorial.ipynb)
 
 For demonstration purposes, we will use the 20 newsgroups data. Start by downloading the data, using:
 
