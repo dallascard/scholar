@@ -51,6 +51,7 @@ def main(args):
 def load_files(files, senator, party, score):
     outlines = []
     print("{:d} files from {:s}".format(len(files), senator))
+    files.sort()
     for infile in files:
         with open(infile, encoding='Windows-1252') as f:
             name = os.path.basename(infile)
