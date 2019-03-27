@@ -35,6 +35,8 @@ def main(args):
                       help='Read topic covariates from files with these names (comma-separated): default=%default')
     parser.add_option('--interactions', action="store_true", default=False,
                       help='Use interactions between topics and topic covariates: default=%default')
+    parser.add_option('--covars-predict', action="store_true", default=False,
+                      help='Use covariates as input to classifier: default=%default')
     parser.add_option('--min-prior-covar-count', type=int, default=None,
                       help='Drop prior covariates with less than this many non-zero values in the training dataa: default=%default')
     parser.add_option('--min-topic-covar-count', type=int, default=None,
@@ -141,7 +143,7 @@ def main(args):
     embeddings, update_embeddings = load_word_vectors(options, rng, vocab)
 
     # create the model
-    model = Scholar(network_architecture, alpha=options.alpha, learning_rate=options.learning_rate, init_embeddings=embeddings, update_embeddings=update_embeddings, init_bg=init_bg, adam_beta1=options.momentum, device=options.device, seed=seed)
+    model = Scholar(network_architecture, alpha=options.alpha, learning_rate=options.learning_rate, init_embeddings=embeddings, update_embeddings=update_embeddings, init_bg=init_bg, adam_beta1=options.momentum, device=options.device, seed=seed, classify_from_covars=options.covars_predict)
 
     # train the model
     print("Optimizing full model")

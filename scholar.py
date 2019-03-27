@@ -9,7 +9,8 @@ from torch.nn.init import xavier_uniform_
 class Scholar(object):
 
     def __init__(self, config, alpha=1.0, learning_rate=0.001, init_embeddings=None, update_embeddings=True,
-                 init_bg=None, update_background=True, adam_beta1=0.99, adam_beta2=0.999, device=None, seed=None):
+                 init_bg=None, update_background=True, adam_beta1=0.99, adam_beta2=0.999, device=None, seed=None,
+                 classify_from_covars=True):
 
         """
         Create the model
@@ -54,7 +55,7 @@ class Scholar(object):
             assert len(self.alpha) == self.n_topics
 
         # create the pyTorch model
-        self._model = torchScholar(config, self.alpha, update_embeddings, init_emb=init_embeddings, bg_init=init_bg, device=self.device).to(self.device)
+        self._model = torchScholar(config, self.alpha, update_embeddings, init_emb=init_embeddings, bg_init=init_bg, device=self.device, classify_from_covars=classify_from_covars).to(self.device)
 
         # set the criterion
         self.criterion = nn.BCEWithLogitsLoss()
@@ -246,7 +247,7 @@ class Scholar(object):
 
 class torchScholar(nn.Module):
 
-    def __init__(self, config, alpha, update_embeddings=True, init_emb=None, bg_init=None, device='cpu'):
+    def __init__(self, config, alpha, update_embeddings=True, init_emb=None, bg_init=None, device='cpu', classify_from_covars=False):
         super(torchScholar, self).__init__()
 
         # load the configuration
@@ -263,7 +264,7 @@ class torchScholar(nn.Module):
         self.l1_beta_ci_reg = config['l1_beta_ci_reg']
         self.l2_prior_reg = config['l2_prior_reg']
         self.device = device
-        self.classify_from_covars = False
+        self.classify_from_covars = classify_from_covars
 
         # create a layer for prior covariates to influence the document prior
         if self.n_prior_covars > 0:
