@@ -90,5 +90,32 @@ def compute_npmi_at_n(topics, ref_vocab, ref_counts, n=10, cols_to_skip=0):
     return np.mean(npmi_means)
 
 
+def compute_npmi_at_n_during_training(beta, ref_counts, n=10, smoothing=0.01):
+
+    n_docs, _ = ref_counts.shape
+
+    n_topics, vocab_size = beta.shape
+
+    npmi_means = []
+    for k in range(n_topics):
+        order = np.argsort(beta[k, :])[::-1]
+        indices = order[:n]
+        npmi_vals = []
+        for index1 in indices:
+            for index2 in indices:
+                col1 = np.array(ref_counts[:, index1] > 0, dtype=int) + smoothing
+                col2 = np.array(ref_counts[:, index2] > 0, dtype=int) + smoothing
+                c1 = col1.sum()
+                c2 = col2.sum()
+                c12 = np.sum(col1 * col2)
+                if c12 == 0:
+                    npmi = 0.0
+                else:
+                    npmi = (np.log10(n_docs) + np.log10(c12) - np.log10(c1) - np.log10(c2)) / (np.log10(n_docs) - np.log10(c12))
+                npmi_vals.append(npmi)
+        npmi_means.append(np.mean(npmi_vals))
+    return np.mean(npmi_means)
+
+
 if __name__ == '__main__':
     main()

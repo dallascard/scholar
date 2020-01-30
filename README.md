@@ -37,7 +37,7 @@ To test out the code, start by downloading the IMDB corpus:
 
 Preprocess the data using:
 
-`python preprocess_data.py data/imdb/train.jsonlist data/imdb/processed/ --vocab-size 2000 --label sentiment --test-prefix data/imdb/test.jsonlist`
+`python preprocess_data.py data/imdb/train.jsonlist data/imdb/processed/ --vocab-size 2000 --label sentiment --test data/imdb/test.jsonlist`
 
 Train a model on this corpus with 10 topics using sentiment as a label on GPU 0:
 
