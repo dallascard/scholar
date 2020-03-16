@@ -195,8 +195,9 @@ def main(args):
 def load_word_counts(input_dir, input_prefix, vocab=None):
     print("Loading data")
     # laod the word counts and convert to a dense matrix
-    temp = fh.load_sparse(os.path.join(input_dir, input_prefix + '.npz')).todense()
-    X = np.array(temp, dtype='float32')
+    #temp = fh.load_sparse(os.path.join(input_dir, input_prefix + '.npz')).todense()
+    #X = np.array(temp, dtype='float32')
+    X = fh.load_sparse(os.path.join(input_dir, input_prefix + '.npz')).tocsr()
     # load the vocabulary
     if vocab is None:
         vocab = fh.read_json(os.path.join(input_dir, input_prefix + '.vocab.json'))
@@ -207,7 +208,10 @@ def load_word_counts(input_dir, input_prefix, vocab=None):
     ids = fh.read_json(os.path.join(input_dir, input_prefix + '.ids.json'))
 
     # filter out empty documents and return a boolean selector for filtering labels and covariates
-    row_selector = np.array(X.sum(axis=1) > 0, dtype=bool)
+    #row_selector = np.array(X.sum(axis=1) > 0, dtype=bool)
+    row_sums = np.array(X.sum(axis=1)).reshape((n_items,))
+    row_selector = np.array(row_sums > 0, dtype=bool)
+
     print("Found %d non-empty documents" % np.sum(row_selector))
     X = X[row_selector, :]
     ids = [doc_id for i, doc_id in enumerate(ids) if row_selector[i]]
@@ -314,7 +318,9 @@ def split_matrix(train_X, train_indices, dev_indices):
 
 def get_init_bg(data):
     #Compute the log background frequency of all words
-    sums = np.sum(data, axis=0)+1
+    #sums = np.sum(data, axis=0)+1
+    n_items, vocab_size = data.shape
+    sums = np.array(data.sum(axis=0)).reshape((vocab_size,))+1.
     print("Computing background frequencies")
     print("Min/max word counts in training data: %d %d" % (int(np.min(sums)), int(np.max(sums))))
     bg = np.array(np.log(sums) - np.log(float(np.sum(sums))), dtype=np.float32)
@@ -488,7 +494,7 @@ def create_minibatch(X, Y, PC, TC, batch_size=200, rng=None):
         else:
             ixs = np.random.randint(X.shape[0], size=batch_size)
 
-        X_mb = X[ixs, :].astype('float32')
+        X_mb = np.array(X[ixs, :].todense()).astype('float32')
         if Y is not None:
             Y_mb = Y[ixs, :].astype('float32')
         else:
@@ -516,7 +522,7 @@ def get_minibatch(X, Y, PC, TC, batch, batch_size=200):
     else:
         ixs = np.arange(batch * batch_size, n_items)
 
-    X_mb = X[ixs, :].astype('float32')
+    X_mb = np.array(X[ixs, :].todense()).astype('float32')
     if Y is not None:
         Y_mb = Y[ixs, :].astype('float32')
     else:
@@ -662,7 +668,8 @@ def print_top_bg(bg, feature_names, n_top_words=10):
 
 def evaluate_perplexity(model, X, Y, PC, TC, batch_size, eta_bn_prop=0.0):
     # Evaluate the approximate perplexity on a subset of the data (using words, labels, and covariates)
-    doc_sums = np.array(X.sum(axis=1), dtype=float)
+    n_items, vocab_size = X.shape
+    doc_sums = np.array(X.sum(axis=1), dtype=float).reshape((n_items,))
     X = X.astype('float32')
     if Y is not None:
         Y = Y.astype('float32')
