@@ -165,6 +165,15 @@ All files will be written to the specified output directory (default=`output`). 
 - `vocab.json`: the vocabulary in order used in beta.npz and other files above
 
 
+## Evaluating NPMI
+
+The `compute_npmi.py` script can be used to compute both internal and external NPMI. To compute external NPMI on the data used in the paper, use the following steps:
+- first, make a directory to hold the the reference count data, e.g. `mkdir nyt_dir`
+- second run `python preprocess_gigaword.py <gigword_eng_nyt_dir> nyt_dir/nyt_preprocessed.txt` to preprocess a subset of the English New York Times articles in Gigaword 5 (removing punctuation, etc.), and writing this data to a text file with one article per line.
+- third run `python compute_ref_counts.py nyt/nyt_preprocessed.txt nyt_dir ref_counts` to convert this data into a large sparse matrix and accompanying vocabulary file.
+- finally, run, `python compute_npmi.py <model_output/topics.txt> nyt_dir/ref_counts.npz nyt_dir/ref_counts.vocab.json`
+
+
 ## TensorFlow vs. PyTorch:
 
 The original implementation of this model was in TensorFlow, and it is the basis of the experiments in the paper. However, the Pytorch implementation is the default and is recommended, as it offers GPU support and some additional options.
