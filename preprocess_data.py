@@ -255,7 +255,9 @@ def process_subset(items, parsed, label_fields, label_lists, vocab, output_dir, 
             if n_labels == 2:
                 label_vector_df.to_csv(os.path.join(output_dir, output_prefix + '.' + label_field + '_vector.csv'))
 
-    X = np.zeros([n_items, vocab_size], dtype=int)
+    rows = []
+    cols = []
+    vals = []
 
     dat_strings = []
     dat_labels = []
@@ -290,10 +292,13 @@ def process_subset(items, parsed, label_fields, label_lists, vocab, output_dir, 
                 dat_labels.append(str(label_index[str(label)]))
 
             values = list(counter.values())
-            X[np.ones(len(counter.keys()), dtype=int) * i, list(counter.keys())] += values
+            rows.extend([i] * len(counter))
+            token_indices = sorted(counter.keys())
+            cols.extend(list(token_indices))
+            vals.extend([counter[k] for k in token_indices])
 
     # convert to a sparse representation
-    sparse_X = sparse.csr_matrix(X)
+    sparse_X = sparse.coo_matrix((vals, (rows, cols)), shape=(n_items, vocab_size)).tocsr()
     fh.save_sparse(sparse_X, os.path.join(output_dir, output_prefix + '.npz'))
 
     print("Size of {:s} document-term matrix:".format(output_prefix), sparse_X.shape)
@@ -309,7 +314,7 @@ def process_subset(items, parsed, label_fields, label_lists, vocab, output_dir, 
         fh.write_list_to_text(dat_labels, os.path.join(output_dir, output_prefix + '.' + label_field + '.dat'))
 
     # save output for Jacob Eisenstein's SAGE code:
-    sparse_X_sage = sparse.csr_matrix(X, dtype=float)
+    #sparse_X_sage = sparse.csr_matrix(X, dtype=float)
     vocab_for_sage = np.zeros((vocab_size,), dtype=np.object)
     vocab_for_sage[:] = vocab
 
@@ -322,7 +327,7 @@ def process_subset(items, parsed, label_fields, label_lists, vocab, output_dir, 
     sage_no_aspect = np.array([n_items, 1], dtype=float)
     widx = np.arange(vocab_size, dtype=float) + 1
 
-    return sparse_X_sage, sage_aspect, sage_no_aspect, widx, vocab_for_sage
+    return sparse_X, sage_aspect, sage_no_aspect, widx, vocab_for_sage
 
 
 def tokenize(text, strip_html=False, lower=True, keep_emails=False, keep_at_mentions=False, keep_numbers=False, keep_alphanum=False, min_length=3, stopwords=None, vocab=None):
